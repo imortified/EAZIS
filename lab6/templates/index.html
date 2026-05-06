@@ -1,1 +1,360 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG — Досуг</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-top">
+                <div class="brand"><span class="dot-blue"></span>RAG помощник по досугу</div>
+                <button id="new-chat" class="btn btn-primary btn-block">Новый диалог</button>
+            </div>
 
+            <div class="section">
+                <div class="section-title">База знаний</div>
+                <div class="upload-wrap">
+                    <label for="pdf-upload" class="btn btn-upload btn-block">Загрузить PDF</label>
+                    <input type="file" id="pdf-upload" accept=".pdf">
+                </div>
+                <div class="upload-hint">Поддерживается только PDF</div>
+                <div id="docs-list" class="docs-list"></div>
+            </div>
+
+            <div class="scroll-area">
+                <div class="section-title">
+                    <span>История</span>
+                    <span id="conv-count" class="count">0</span>
+                </div>
+                <ul class="list" id="conv-list"></ul>
+            </div>
+        </aside>
+
+        <!-- CHAT -->
+        <main class="chat-area">
+            <div class="chat-header">
+                <div class="chat-title">
+                    <span class="status"></span>
+                    <span id="current-title">Новый диалог</span>
+                </div>
+                <div class="header-actions">
+                    <button id="btn-rename" class="btn btn-icon-light" title="Переименовать">✎</button>
+                    <button id="btn-delete" class="btn btn-icon-light" title="Удалить диалог">🗑</button>
+                </div>
+            </div>
+
+            <div class="messages" id="messages">
+                <div class="empty-state">
+                    <p>Загрузите PDF по теме «Досуг»<br>и начните диалог</p>
+                </div>
+            </div>
+
+            <div class="help-bar">
+                Enter — отправить &nbsp;|&nbsp; Модель: granite4.1:8b
+            </div>
+
+            <div class="input-bar">
+                <div class="input-wrap">
+                    <input type="text" id="msg-input" placeholder="Введите сообщение..." autocomplete="off">
+                </div>
+                <button id="send-btn" class="btn btn-send">Отправить</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Rename Modal -->
+    <div class="modal-overlay" id="rename-modal">
+        <div class="modal">
+            <h3>Переименовать диалог</h3>
+            <input type="text" id="rename-input" placeholder="Название диалога">
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="rename-cancel">Отмена</button>
+                <button class="btn btn-primary" id="rename-confirm">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentId = null;
+        let isLoading = false;
+
+        async function api(url, opts = {}) {
+            const res = await fetch(url, opts);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || `HTTP ${res.status}`);
+            }
+            return res.json();
+        }
+
+        function esc(t) {
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+
+        function fmtTime() {
+            const now = new Date();
+            return now.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+        }
+
+        async function loadConversations() {
+            try {
+                const convs = await api('/api/conversations');
+                const ul = document.getElementById('conv-list');
+                ul.innerHTML = '';
+                document.getElementById('conv-count').textContent = convs.length;
+
+                convs.forEach(conv => {
+                    const li = document.createElement('li');
+                    li.className = 'list-item' + (conv.id === currentId ? ' active' : '');
+                    li.innerHTML = `
+                        <span class="item-text">${esc(conv.title)}</span>
+                        <button class="btn btn-icon" onclick="event.stopPropagation(); deleteConv(${conv.id})" title="Удалить">×</button>
+                    `;
+                    li.onclick = () => loadConversation(conv.id, conv.title);
+                    ul.appendChild(li);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadDocuments() {
+            try {
+                const docs = await api('/api/documents');
+                const container = document.getElementById('docs-list');
+                container.innerHTML = '';
+                docs.forEach(doc => {
+                    const div = document.createElement('div');
+                    div.className = 'doc-item';
+                    div.innerHTML = `
+                        <span class="doc-name">${esc(doc.filename)}</span>
+                        <span class="doc-badge">PDF</span>
+                        <button class="btn btn-icon" onclick="deleteDoc(${doc.id})" title="Удалить">×</button>
+                    `;
+                    container.appendChild(div);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function deleteDoc(id) {
+            if (!confirm('Удалить документ из базы знаний?')) return;
+            try {
+                await api(`/api/documents/${id}`, {method: 'DELETE'});
+                loadDocuments();
+            } catch (e) { alert(e.message); }
+        }
+
+        async function deleteConv(id) {
+            if (!confirm('Удалить этот диалог?')) return;
+            try {
+                await api(`/api/conversations/${id}`, {method: 'DELETE'});
+                if (currentId === id) {
+                    currentId = null;
+                    resetChat();
+                }
+                loadConversations();
+            } catch (e) { alert(e.message); }
+        }
+
+        function resetChat() {
+            document.getElementById('messages').innerHTML = `
+                <div class="empty-state">
+                    <p>Выберите диалог или создайте новый</p>
+                </div>
+            `;
+            document.getElementById('current-title').textContent = 'Новый диалог';
+        }
+
+        async function loadConversation(id, title) {
+            currentId = id;
+            document.getElementById('current-title').textContent = title;
+            const container = document.getElementById('messages');
+            container.innerHTML = '';
+
+            try {
+                const msgs = await api(`/api/conversations/${id}`);
+                if (msgs.length === 0) {
+                    container.innerHTML = `<div class="empty-state"><p>Начните диалог...</p></div>`;
+                } else {
+                    msgs.forEach(m => appendMsg(m.role, m.content));
+                }
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state"><p>Ошибка загрузки</p></div>`;
+            }
+            loadConversations();
+            document.getElementById('msg-input').focus();
+        }
+
+        function appendMsg(role, content) {
+            const container = document.getElementById('messages');
+            const empty = container.querySelector('.empty-state');
+            if (empty) empty.remove();
+
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            const avatar = role === 'user' ? 'ВЫ' : 'AI';
+            div.innerHTML = `
+                <div class="avatar">${avatar}</div>
+                <div class="message-body">
+                    <div class="bubble">
+                        <div class="bubble-content">${esc(content)}</div>
+                    </div>
+                    <div class="message-time">${fmtTime()}</div>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showTyping() {
+            const container = document.getElementById('messages');
+            const empty = container.querySelector('.empty-state');
+            if (empty) empty.remove();
+
+            const div = document.createElement('div');
+            div.className = 'message assistant';
+            div.id = 'typing-msg';
+            div.innerHTML = `
+                <div class="avatar">AI</div>
+                <div class="message-body">
+                    <div class="bubble">
+                        <div class="typing-indicator">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function removeTyping() {
+            const t = document.getElementById('typing-msg');
+            if (t) t.remove();
+        }
+
+        async function send() {
+            const input = document.getElementById('msg-input');
+            const text = input.value.trim();
+            if (!text || isLoading) return;
+            if (!currentId) {
+                alert('Сначала создайте диалог');
+                return;
+            }
+
+            input.value = '';
+            isLoading = true;
+            document.getElementById('send-btn').disabled = true;
+            appendMsg('user', text);
+            showTyping();
+
+            try {
+                const data = await api(`/api/conversations/${currentId}/messages`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: text})
+                });
+                removeTyping();
+                appendMsg('assistant', data.response);
+            } catch (e) {
+                removeTyping();
+                appendMsg('assistant', `[Ошибка: ${e.message}]`);
+            } finally {
+                isLoading = false;
+                document.getElementById('send-btn').disabled = false;
+                input.focus();
+            }
+        }
+
+        document.getElementById('send-btn').onclick = send;
+        document.getElementById('msg-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send();
+            }
+        });
+
+        document.getElementById('new-chat').onclick = async () => {
+            try {
+                const conv = await api('/api/conversations', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({title: 'Новый диалог'})
+                });
+                await loadConversation(conv.id, conv.title);
+            } catch (e) { alert(e.message); }
+        };
+
+        document.getElementById('btn-delete').onclick = () => {
+            if (currentId) deleteConv(currentId);
+        };
+
+        // Rename modal
+        const modal = document.getElementById('rename-modal');
+        document.getElementById('btn-rename').onclick = () => {
+            if (!currentId) return;
+            document.getElementById('rename-input').value = document.getElementById('current-title').textContent;
+            modal.classList.add('show');
+            document.getElementById('rename-input').focus();
+        };
+        document.getElementById('rename-cancel').onclick = () => modal.classList.remove('show');
+        document.getElementById('rename-confirm').onclick = async () => {
+            const title = document.getElementById('rename-input').value.trim();
+            if (!title || !currentId) { modal.classList.remove('show'); return; }
+            try {
+                await api(`/api/conversations/${currentId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({title})
+                });
+                document.getElementById('current-title').textContent = title;
+                loadConversations();
+            } catch (e) { alert(e.message); }
+            modal.classList.remove('show');
+        };
+        document.getElementById('rename-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') document.getElementById('rename-confirm').click();
+            if (e.key === 'Escape') modal.classList.remove('show');
+        });
+        modal.onclick = e => { if (e.target === modal) modal.classList.remove('show'); };
+
+        // Upload
+        document.getElementById('pdf-upload').onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const form = new FormData();
+            form.append('file', file);
+            try {
+                const data = await api('/api/upload', {method: 'POST', body: form});
+                alert(`Загружено: ${data.chunks} фрагментов`);
+                loadDocuments();
+            } catch (err) { alert(err.message); }
+            e.target.value = '';
+        };
+
+        // Init
+        (async () => {
+            await loadConversations();
+            await loadDocuments();
+            if (!currentId) {
+                try {
+                    const conv = await api('/api/conversations', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({title: 'Новый диалог'})
+                    });
+                    await loadConversation(conv.id, conv.title);
+                } catch (e) { console.error(e); }
+            }
+        })();
+    </script>
+</body>
+</html>
