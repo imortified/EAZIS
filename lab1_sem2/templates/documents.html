@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Документы{% endblock %}
+{% block content %}
+<h1>Управление документами</h1>
+
+<div class="cards">
+  <section class="card">
+    <h2>Добавить документ</h2>
+    <form method="post" action="{{ url_for('documents_add') }}">
+      <input type="text" name="title" placeholder="Заголовок документа" required>
+      <textarea name="text" rows="6" placeholder="Текст документа (естественный язык)" required></textarea>
+      <button type="submit">Добавить и проиндексировать</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Загрузить файл</h2>
+    <form method="post" action="{{ url_for('documents_upload') }}" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".txt,.md" required>
+      <button type="submit">Загрузить файл .txt / .md</button>
+    </form>
+    <p class="hint">Заголовком станет первая строка файла (до 100 символов).</p>
+  </section>
+
+  <section class="card">
+    <h2>Модуль отбора документов</h2>
+    <form method="post" action="{{ url_for('documents_folder') }}">
+      <input type="text" name="folder" placeholder="Путь к папке, например C:\docs или \\server\share" required>
+      <button type="submit">Отобрать документы из папки</button>
+    </form>
+    <p class="hint">Модуль рекурсивно отбирает файлы .txt/.md (поддержка сетевых каталогов ЛВС), определяет кодировку, отсекает дубликаты и индексирует отобранные документы.</p>
+  </section>
+</div>
+
+<div class="card">
+  <h2>База документов <span class="muted">— документов: {{ n_docs }}, основ в словаре: {{ n_lemmas }}</span></h2>
+  {% if docs %}
+  <table>
+    <tr><th>№</th><th>Заголовок</th><th>Дата</th><th>Источник</th><th></th></tr>
+    {% for d in docs %}
+    <tr>
+      <td>{{ d.document_id }}</td>
+      <td><a href="{{ url_for('document_view', doc_id=d.document_id) }}">{{ d.title }}</a></td>
+      <td>{{ d.date }}</td>
+      <td class="muted">{{ d.source }}</td>
+      <td class="actions">
+        <form method="post" action="{{ url_for('documents_delete', doc_id=d.document_id) }}"
+              onsubmit="return confirm('Удалить документ №{{ d.document_id }}?')">
+          <button class="danger" type="submit">Удалить</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="hint">База пуста — добавьте документы или воспользуйтесь модулем отбора.</p>
+  {% endif %}
+</div>
+{% endblock %}

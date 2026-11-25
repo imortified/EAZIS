@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Поиск{% endblock %}
+{% block content %}
+<h1>Поиск по коллекции</h1>
+
+<form class="card search-form" method="get" action="{{ url_for('search') }}">
+  <input type="text" name="q" value="{{ query }}" placeholder="Введите запрос, например: локальная сеть" autofocus>
+  <div class="row">
+    <label>Связка слов по умолчанию
+      <select name="mode">
+        <option value="all" {% if mode == 'all' %}selected{% endif %}>все слова (AND)</option>
+        <option value="any" {% if mode == 'any' %}selected{% endif %}>любое слово (OR)</option>
+      </select>
+    </label>
+    <label>Дата с <input type="date" name="date_from" value="{{ date_from }}"></label>
+    <label>по <input type="date" name="date_to" value="{{ date_to }}"></label>
+    <button type="submit">Найти</button>
+  </div>
+  <p class="hint">Операторы: AND, OR, NOT (или И, ИЛИ, НЕ), скобки. Пример: <code>(локальная OR беспроводная) NOT безопасность</code></p>
+</form>
+
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+{% if unknown %}
+<div class="flash warn">Слова, отсутствующие в словаре индекса: {{ unknown | join(', ') }}. Документы с ними не могут быть найдены.</div>
+{% endif %}
+{% if suggestion_query %}
+<div class="flash info">
+  Возможно, вы имели в виду:
+  {% for s in suggestions %}<span class="badge">{{ s.original }} → {{ s.corrected }}</span>{% endfor %}
+  <a class="suggest-link" href="{{ url_for('search', q=suggestion_query, mode=mode, date_from=date_from or '', date_to=date_to or '') }}">Искать «{{ suggestion_query }}»</a>
+</div>
+{% endif %}
+
+{% if results is not none %}
+  <div class="result-meta">Найдено документов: <b>{{ results | length }}</b></div>
+  {% for r in results %}
+  <article class="card result">
+    <div class="r-head">
+      <a class="r-title" href="{{ url_for('document_view', doc_id=r.document_id) }}">{{ r.title }}</a>
+      <span class="muted">№{{ r.document_id }} · {{ r.date }}</span>
+    </div>
+    <p class="snippet">{{ r.snippet }}</p>
+    <div class="r-foot">
+      <span class="muted">Ранг: {{ '%.4f' | format(r.rank) }}</span>
+      <span class="words">Слова запроса в документе:
+        {% for w in r.matched_words %}<span class="badge">{{ w }}</span>{% endfor %}
+      </span>
+    </div>
+  </article>
+  {% else %}
+  <div class="card empty">По запросу ничего не найдено. Проверьте раскладку, операторы или ослабьте условие (OR вместо AND).</div>
+  {% endfor %}
+{% endif %}
+{% endblock %}

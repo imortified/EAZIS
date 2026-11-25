@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Реферирование{% endblock %}</title><link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"></head>
+<body><header class="top"><a class="brand" href="{{ url_for('index') }}">Автоматическое реферирование</a>
+<nav><a href="{{ url_for('index') }}">Главная</a><a href="{{ url_for('documents_page') }}">Документы</a><a href="{{ url_for('compare') }}">Сравнение</a><a href="{{ url_for('metrics') }}">Оценка</a><a href="{{ url_for('help_page') }}">Помощь</a></nav></header>
+<main>{% for category,message in get_flashed_messages(with_categories=true) %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}{% block content %}{% endblock %}</main>
+<footer>English / Français · Sentence Extraction + TextRank</footer></body></html>

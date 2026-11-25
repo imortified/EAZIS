@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Результаты — Определение языка текста{% endblock %}
+
+{% block content %}
+<section class="results-header">
+  <div>
+    <h1>Результаты анализа</h1>
+    <p class="subtitle">
+      Пакет от {{ batch.created }} · документов: {{ batch.summary.total }}
+    </p>
+  </div>
+  <div class="toolbar no-print">
+    <a class="btn btn-secondary" href="{{ url_for('index') }}">Новый анализ</a>
+    <a class="btn btn-secondary"
+       href="{{ url_for('report', batch_id=batch.id) }}">Сохранить отчёт (TXT)</a>
+    <button class="btn btn-primary" onclick="window.print()">Печать</button>
+  </div>
+</section>
+
+<section class="stat-cards">
+  <div class="card stat">
+    <span class="stat-value">{{ batch.summary.total }}</span>
+    <span class="stat-label">документов</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-value accent-fr">{{ batch.summary.fr }}</span>
+    <span class="stat-label">французский</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-value accent-en">{{ batch.summary.en }}</span>
+    <span class="stat-label">английский</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-value">{{ batch.summary.acc_final or '—' }}</span>
+    <span class="stat-label">итоговая точность</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-value">{{ '%.1f'|format(batch.summary.avg_total_ms) }}<small> мс</small></span>
+    <span class="stat-label">среднее время</span>
+  </div>
+</section>
+
+{% if batch.summary.labeled %}
+<section class="card accuracy-card">
+  <h2>Точность по методам</h2>
+  <div class="accuracy-row">
+    <div class="acc-item">
+      <span class="acc-method">Частотные слова</span>
+      <span class="acc-value">{{ batch.summary.acc_freq or '—' }}</span>
+    </div>
+    <div class="acc-item">
+      <span class="acc-method">Алфавитный</span>
+      <span class="acc-value">{{ batch.summary.acc_alpha or '—' }}</span>
+    </div>
+    <div class="acc-item">
+      <span class="acc-method">Нейросеть</span>
+      <span class="acc-value">{{ batch.summary.acc_neural or '—' }}</span>
+    </div>
+    <div class="acc-item">
+      <span class="acc-method">Итоговое решение</span>
+      <span class="acc-value">{{ batch.summary.acc_final or '—' }}</span>
+    </div>
+  </div>
+  <p class="hint">
+    Точность рассчитана по {{ batch.summary.labeled }} документам,
+    язык которых известен из имени файла (префиксы FR_ / EN_).
+  </p>
+</section>
+{% endif %}
+
+<section class="card table-card">
+  <table class="results-table">
+    <thead>
+      <tr>
+        <th>Документ</th>
+        <th>Частотные слова</th>
+        <th>Алфавитный</th>
+        <th>Нейросеть</th>
+        <th>Итог</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in batch['items'] %}
+      <tr>
+        <td class="doc-cell">
+          <a class="doc-link" href="{{ url_for('document', batch_id=batch.id, filename=it.file) }}"
+             target="_blank" rel="noopener">{{ it.file }}</a>
+          <span class="doc-meta">
+            {{ it.chars }} симв. · {{ it.words }} слов ·
+            {{ '%.2f'|format(it.total_ms) }} мс
+          </span>
+          <span class="doc-links no-print">
+            <a href="{{ url_for('document', batch_id=batch.id, filename=it.file) }}"
+               target="_blank" rel="noopener">открыть</a> ·
+            <a href="{{ url_for('document_text', batch_id=batch.id, filename=it.file) }}"
+               target="_blank" rel="noopener">текст</a>
+          </span>
+        </td>
+        <td>
+          {% set m = it.methods['freq'] %}
+          <span class="badge badge-{{ m.lang }}">{{ m.lang|upper }}</span>
+          <span class="method-note">{{ m.detail }}</span>
+        </td>
+        <td>
+          {% set m = it.methods['alpha'] %}
+          <span class="badge badge-{{ m.lang }}">{{ m.lang|upper }}</span>
+          <span class="method-note">{{ m.detail }}</span>
+        </td>
+        <td>
+          {% set m = it.methods['neural'] %}
+          <span class="badge badge-{{ m.lang }}">{{ m.lang|upper }}</span>
+          <span class="method-note">{{ m.detail }}</span>
+        </td>
+        <td class="final-cell">
+          <span class="badge badge-{{ it.final }}">{{ it.final|upper }}</span>
+          {% if it.label %}
+            <span class="correct {{ 'ok' if it.correct else 'bad' }}">
+              {{ 'верно' if it.correct else 'ошибка' }}
+            </span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<p class="hint no-print">
+  Ссылки в колонке «Документ» открывают исходные загруженные файлы
+  (активная ссылка на документ). Кнопка «Сохранить отчёт» выгружает
+  полный отчёт в текстовый файл, «Печать» выводит результаты на принтер.
+</p>
+{% endblock %}

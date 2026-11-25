@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Оценка качества{% endblock %}
+{% block content %}
+<h1>Оценка качества поиска</h1>
+
+<div class="cards avg-cards">
+  <div class="card kpi"><b>MAP</b><span>{{ '%.3f' | format(data.averages.map) }}</span></div>
+  <div class="card kpi"><b>Средняя точность</b><span>{{ '%.3f' | format(data.averages.precision) }}</span></div>
+  <div class="card kpi"><b>Средняя полнота</b><span>{{ '%.3f' | format(data.averages.recall) }}</span></div>
+  <div class="card kpi"><b>Средняя F1</b><span>{{ '%.3f' | format(data.averages.f1) }}</span></div>
+  <div class="card kpi"><b>R-точность</b><span>{{ '%.3f' | format(data.averages.r_precision) }}</span></div>
+  <div class="card kpi"><b>Fallout</b><span>{{ '%.3f' | format(data.averages.fallout) }}</span></div>
+</div>
+
+<div class="card">
+  <h2>Метрики по тестовым запросам</h2>
+  {% if data.per_query %}
+  <table>
+    <tr>
+      <th>№</th><th>Запрос</th><th>Рел.</th><th>Найд.</th><th>Рел. найд.</th>
+      <th>P</th><th>R</th><th>F1</th><th>R-точн.</th><th>P@5</th><th>AP</th><th></th>
+    </tr>
+    {% for q in data.per_query %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td class="q-text">{{ q.query_text }}</td>
+      <td>{{ q.n_relevant }}</td>
+      <td>{{ q.n_returned }}</td>
+      <td>{{ q.n_found }}</td>
+      <td>{{ '%.3f' | format(q.precision) }}</td>
+      <td>{{ '%.3f' | format(q.recall) }}</td>
+      <td>{{ '%.3f' | format(q.f1) }}</td>
+      <td>{{ '%.3f' | format(q.r_precision) }}</td>
+      <td>{{ '%.3f' | format(q.p_at_5) }}</td>
+      <td>{{ '%.3f' | format(q.ap) }}</td>
+      <td class="actions">
+        <form method="post" action="{{ url_for('metrics_delete_query', query_id=q.query_id) }}"
+              onsubmit="return confirm('Удалить тестовый запрос №{{ q.query_id }}?')">
+          <button class="danger" type="submit">✕</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="hint">P — точность, R — полнота, F1 — F-мера, R-точн. — R-precision,
+     P@5 — точность на первых 5 документах, AP — средняя точность по позициям релевантных документов.</p>
+  {% else %}
+  <p class="hint">Нет тестовых запросов — добавьте их ниже.</p>
+  {% endif %}
+</div>
+
+<div class="cards">
+  <section class="card">
+    <h2>Точность, полнота, F1</h2>
+    <img src="{{ url_for('static', filename='charts/bar_metrics.png') }}?v={{ v }}" alt="Гистограмма метрик">
+  </section>
+</div>
+<div class="cards">
+  <section class="card">
+    <h2>Кривые полнота–точность</h2>
+    <img src="{{ url_for('static', filename='charts/pr_curves.png') }}?v={{ v }}" alt="PR-кривые">
+  </section>
+  <section class="card">
+    <h2>11-точечная средняя точность</h2>
+    <img src="{{ url_for('static', filename='charts/eleven_point.png') }}?v={{ v }}" alt="11-точечная кривая">
+  </section>
+</div>
+
+<div class="card">
+  <h2>Добавить тестовый запрос</h2>
+  <form method="post" action="{{ url_for('metrics_add_query') }}">
+    <input type="text" name="query_text" placeholder="Текст запроса, например: защита данных" required>
+    <input type="text" name="description" placeholder="Описание (необязательно)">
+    <div class="rel-grid">
+      {% for d in docs %}
+      <label class="rel-item">
+        <input type="checkbox" name="rel" value="{{ d.document_id }}">
+        №{{ d.document_id }} {{ d.title }}
+      </label>
+      {% endfor %}
+    </div>
+    <button type="submit">Добавить запрос</button>
+  </form>
+  <p class="hint">Отметьте документы, которые считаете релевантными запросу (эталон). По умолчанию запрос выполняется в режиме «все слова».</p>
+</div>
+{% endblock %}

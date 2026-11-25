@@ -1,0 +1,3 @@
+<h2>{{ result.method_label }}</h2><p class="muted">{{ result.selected_count }} из {{ result.sentence_count }} предложений · {{ '%.1f'|format(result.elapsed_ms) }} мс · объём {{ '%.1f'|format(result.compression*100) }}% от исходного</p>
+{% for warning in result.warnings %}<div class="flash warn">{{ warning }}</div>{% endfor %}
+<h3>Классический реферат</h3><div class="document-text">{{ result.summary }}</div><h3>Ключевые слова и фразы</h3><div class="keywords">{% for keyword in result.keywords %}<span class="badge" title="Вес: {{ '%.6f'|format(keyword.score) }}; вхождений: {{ keyword.frequency }}">{{ keyword.text }}</span>{% endfor %}</div>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Определение языка текста{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="{{ url_for('index') }}">
+        <span class="brand-name">Определение языка текста</span>
+      </a>
+      <nav class="nav">
+        <a href="{{ url_for('index') }}" class="nav-link">Анализ</a>
+        <a href="{{ url_for('help_page') }}" class="nav-link">Справка</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for m in messages %}
+          <div class="flash">{{ m }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block scripts %}{% endblock %}
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Вариант 25 · FR / EN</span>
+      <span>Частотные слова · Алфавитный · Нейросеть</span>
+    </div>
+  </footer>
+</body>
+</html>

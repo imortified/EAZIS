@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Текст документа — {{ filename }}{% endblock %}
+
+{% block content %}
+<section class="results-header">
+  <div>
+    <h1>Извлечённый текст</h1>
+    <p class="subtitle">{{ filename }}</p>
+  </div>
+  <div class="toolbar no-print">
+    <a class="btn btn-secondary"
+       href="{{ url_for('document', batch_id=batch_id, filename=filename) }}"
+       target="_blank" rel="noopener">Исходный документ</a>
+    <button class="btn btn-primary" onclick="window.print()">Печать</button>
+  </div>
+</section>
+
+<section class="card text-view">
+  <pre>{{ text }}</pre>
+</section>
+{% endblock %}

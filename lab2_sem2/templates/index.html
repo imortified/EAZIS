@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+  <h1>Определение языка текста</h1>
+  <p class="subtitle">
+    Автоматическое распознавание языка HTML-документов:
+    <strong>французский</strong> или <strong>английский</strong>.
+    Загрузите один или несколько файлов — система определит язык
+    тремя методами и покажет сводную статистику.
+  </p>
+</section>
+
+<section class="card upload-card">
+  <form id="upload-form" action="{{ url_for('analyze') }}"
+        method="post" enctype="multipart/form-data">
+    <div id="dropzone" class="dropzone" tabindex="0"
+         role="button" aria-label="Выберите файлы">
+      <p class="dropzone-title">Перетащите файлы сюда</p>
+      <p class="dropzone-hint">
+        или нажмите, чтобы выбрать. Форматы: .html, .htm, .txt —
+        примерно 1 страница A4 каждый.
+      </p>
+      <input id="file-input" type="file" name="documents"
+             multiple accept=".html,.htm,.txt" hidden>
+    </div>
+
+    <ul id="file-list" class="file-list" hidden></ul>
+
+    <div class="actions">
+      <span id="file-count" class="file-count"></span>
+      <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
+        Определить язык
+      </button>
+    </div>
+  </form>
+</section>
+
+<section class="method-cards">
+  <article class="card method-card">
+    <h3><span class="method-num">1</span>Частотные слова</h3>
+    <p>
+      Сравнение документа с профилем языка из 200 самых частых слов.
+      Оценка — суммарная логарифмическая вероятность слов документа.
+    </p>
+  </article>
+  <article class="card method-card">
+    <h3><span class="method-num">2</span>Алфавитный</h3>
+    <p>
+      Сравнение распределений частот букв. Метрика — расстояние
+      между профилем языка и документом (меньше — лучше).
+    </p>
+  </article>
+  <article class="card method-card">
+    <h3><span class="method-num">3</span>Нейросеть</h3>
+    <p>
+      Многослойный перцептрон (scikit-learn) на признаках частот букв
+      и частотных слов. Возвращает вероятность класса.
+    </p>
+  </article>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const dropzone   = document.getElementById('dropzone');
+  const fileInput  = document.getElementById('file-input');
+  const fileList   = document.getElementById('file-list');
+  const fileCount  = document.getElementById('file-count');
+  const submitBtn  = document.getElementById('submit-btn');
+
+  function refreshList() {
+    const files = Array.from(fileInput.files || []);
+    fileList.innerHTML = '';
+    files.forEach((f, i) => {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = f.name;
+      const size = document.createElement('small');
+      size.textContent = (f.size / 1024).toFixed(1) + ' КБ';
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'file-remove';
+      del.setAttribute('aria-label', 'Убрать ' + f.name);
+      del.textContent = '×';
+      del.addEventListener('click', () => {
+        const dt = new DataTransfer();
+        files.forEach((x, j) => { if (j !== i) dt.items.add(x); });
+        fileInput.files = dt.files;
+        refreshList();
+      });
+      li.append(name, size, del);
+      fileList.appendChild(li);
+    });
+    fileList.hidden = files.length === 0;
+    fileCount.textContent = files.length
+      ? 'Выбрано файлов: ' + files.length : '';
+    submitBtn.disabled = files.length === 0;
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') fileInput.click();
+  });
+  fileInput.addEventListener('change', refreshList);
+
+  ['dragenter', 'dragover'].forEach(ev =>
+    dropzone.addEventListener(ev, (e) => {
+      e.preventDefault(); dropzone.classList.add('dragover');
+    }));
+  ['dragleave', 'drop'].forEach(ev =>
+    dropzone.addEventListener(ev, (e) => {
+      e.preventDefault(); dropzone.classList.remove('dragover');
+    }));
+  dropzone.addEventListener('drop', (e) => {
+    if (e.dataTransfer && e.dataTransfer.files.length) {
+      fileInput.files = e.dataTransfer.files;
+      refreshList();
+    }
+  });
+</script>
+{% endblock %}

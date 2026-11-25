@@ -1,0 +1,2 @@
+<div class="row"><label>Метод<select name="method">{% for key,label in methods.items() %}<option value="{{ key }}" {% if key=='textrank' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label>Предложений<input name="sentence_count" type="number" min="1" max="50" value="{{ count|default(10) }}" required></label><button type="submit">{{ button|default('Построить реферат') }}</button></div>
